@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
         const invitados = JSON.parse(xhr.responseText);
         invitados.forEach(invitado => {
-          const li = createLI(invitado.nombre);
+          const li = createLI(invitado.id, invitado.nombre,invitado.confirmado);
           ul.appendChild(li);
         });
       }
@@ -52,7 +52,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   
-  function createLI(text) {
+  function createLI(id,text,confirmado) {
+
     function createElement(elementName, property, value) {
       const element = document.createElement(elementName);  
       element[property] = value; 
@@ -66,11 +67,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     const li = document.createElement('li');
+    li.setAttribute("id", id);
+    li.setAttribute("nombre", text);
+    li.setAttribute("confirmado", confirmado);
     appendToLI('span', 'textContent', text);     
-    appendToLI('label', 'textContent', 'Confirmed')
+    const checkbox = appendToLI('label', 'textContent', 'Confirmed')
       .appendChild(createElement('input', 'type', 'checkbox'));
+      if (confirmado) {
+        checkbox.checked = true;
+        li.className = 'responded';
+      }else{
+        checkbox.checked = false;
+        li.className = '';
+      }
     appendToLI('button', 'textContent', 'edit');
     appendToLI('button', 'textContent', 'remove');
+
     return li;
   }
   
@@ -81,7 +93,10 @@ document.addEventListener('DOMContentLoaded', () => {
       xhr.setRequestHeader('Content-Type', 'application/json');
       xhr.onreadystatechange = function() {
         if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 201) {
-          console.log('Invitado agregado');
+          const invitado = JSON.parse(xhr.responseText);
+          const li = createLI(invitado.id, nombre,false);
+          ul.appendChild(li);
+          console.log('Invitado añadido');
         }
       };
       xhr.send(JSON.stringify({ nombre, confirmado}));
@@ -89,9 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     e.preventDefault();
     const text = input.value;
-    input.value = '';
-    const li = createLI(text);
-    ul.appendChild(li);
+    input.value = ''; 
     addInvitado(text,false);
   });
     
@@ -99,19 +112,36 @@ document.addEventListener('DOMContentLoaded', () => {
     const checkbox = e.target;
     const checked = checkbox.checked;
     const listItem = checkbox.parentNode.parentNode;
+    const id= listItem.getAttribute("id");
     
+    if(e.target.type=="checkbox"){
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', `http://localhost:3000/invitados/${id}`, true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
+        console.log('Invitado actualizado');
+      }
+    };
+    const nombre= listItem.getAttribute("nombre");
     if (checked) {
       listItem.className = 'responded';
+      xhr.send(JSON.stringify({ nombre, confirmado: true }));
     } else {
       listItem.className = '';
+      xhr.send(JSON.stringify({ nombre, confirmado: false }));
     }
+  }
   });
     
   ul.addEventListener('click', (e) => {
     if (e.target.tagName === 'BUTTON') {
       const button = e.target;
       const li = button.parentNode;
+      console.log(li);
       const id= li.getAttribute("id");
+      const confir= li.getAttribute("confirmado");
+      const boolconfir= JSON.parse(confir);
       const ul = li.parentNode;
       const action = button.textContent;
       const nameActions = {
@@ -125,10 +155,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log('Invitado eliminado');
               }
             };
-            xhr.send(JSON.stringify({ id }));
+            xhr.send();
           }
-          deleteInvitado(id);
           ul.removeChild(li);
+          deleteInvitado(id);
         },
         edit: () => {
           const span = li.firstElementChild;
@@ -149,7 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log('Invitado actualizado');
               }
             };
-            xhr.send(JSON.stringify({ nombre }));
+            xhr.send(JSON.stringify({ nombre, confirmado: boolconfir }));
           }
 
           const input = li.firstElementChild;
